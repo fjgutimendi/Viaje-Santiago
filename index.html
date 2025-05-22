@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan Peregrinación Camino de Santiago desde Dallas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices:
+    - Climate (Sec II.B): Goal: Compare May/Sept. Viz: Bar Chart (Chart.js) for Temp Max/Min, Rain Days. Interaction: Hover. Justification: Easy visual comparison.
+    - Flights/Transfers (Sec III): Goal: Clarify travel. Viz: Text + HTML/CSS diagram for Madrid transfers. Justification: Visual aid for complex transfers.
+    - Stages (Sec IV.B/C): Goal: Detail each walking day. Viz: Cards for stages, on click show details (text, stats) + simple bar for distance. Interaction: Click to expand. Justification: Focused detail, avoids overload.
+    - 10-Day Itinerary (Sec V.B): Goal: Show schedule. Viz: Accordion list. Interaction: Expand/collapse. Justification: Compact overview.
+    - Budget (Sec VI.A/B): Goal: Show cost breakdown. Viz: Pie Chart (Chart.js) for categories, table for details. Interaction: Hover on pie. Justification: Quick visual of cost distribution.
+    - Packing List (Sec VII.B): Goal: Checklist. Viz: HTML list with checkboxes. Interaction: Visual check. Justification: Interactive and practical.
+    - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. All charts via Chart.js (Canvas). Diagrams via HTML/CSS. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif; /* Tailwind uses a system font stack by default, Inter is a good choice */
+        }
+        .tab-button.active {
+            border-color: #059669; /* emerald-600 */
+            color: #059669;
+            font-weight: 600;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .accordion-content.open { max-height: 1000px; /* Adjust as needed */ }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        /* Custom scrollbar for better aesthetics if needed */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px;}
+        ::-webkit-scrollbar-thumb { background: #059669; border-radius: 10px;}
+        ::-webkit-scrollbar-thumb:hover { background: #047857; }
+
+        .stage-map-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+        }
+        .stage-map-item {
+            background-color: #e0f2fe; /* sky-100 */
+            border: 2px solid #0284c7; /* sky-600 */
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 0.75rem;
+            text-align: center;
+            width: 80%;
+            max-width: 400px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stage-map-item strong {
+            color: #0369a1; /* sky-700 */
+        }
+        .stage-map-arrow {
+            font-size: 1.5rem;
+            color: #0284c7; /* sky-600 */
+            margin-bottom: 0.75rem;
+        }
+
+        .transport-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background-color: #f0f9ff; /* sky-50 */
+            border-radius: 0.5rem;
+            border: 1px solid #e0f2fe; /* sky-100 */
+        }
+        .transport-step {
+            background-color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .transport-arrow {
+            font-size: 1.25rem;
+            color: #38bdf8; /* sky-400 */
+        }
+
+    </style>
+</head>
+<body class="bg-amber-50 text-stone-800 antialiased">
+
+    <header class="bg-emerald-700 text-white p-6 shadow-lg">
+        <div class="container mx-auto max-w-6xl">
+            <h1 class="text-3xl font-bold">Peregrinación al Camino de Santiago desde Dallas</h1>
+            <p class="text-emerald-200">Un plan interactivo para tu aventura de 10 días</p>
+        </div>
+    </header>
+
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto max-w-6xl flex flex-wrap justify-center space-x-2 sm:space-x-4 p-3 overflow-x-auto">
+            <button class="tab-button text-sm sm:text-base py-2 px-3 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-600 transition-colors active" onclick="openTab(event, 'overview')">🌟 Resumen</button>
+            <button class="tab-button text-sm sm:text-base py-2 px-3 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-600 transition-colors" onclick="openTab(event, 'planning')">📅 Planifica</button>
+            <button class="tab-button text-sm sm:text-base py-2 px-3 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-600 transition-colors" onclick="openTab(event, 'route')">🚶 La Ruta</button>
+            <button class="tab-button text-sm sm:text-base py-2 px-3 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-600 transition-colors" onclick="openTab(event, 'itinerary')">🗓️ Itinerario 10 Días</button>
+            <button class="tab-button text-sm sm:text-base py-2 px-3 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-600 transition-colors" onclick="openTab(event, 'budget')">💰 Presupuesto</button>
+            <button class="tab-button text-sm sm:text-base py-2 px-3 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-600 transition-colors" onclick="openTab(event, 'preparations')">🎒 Preparativos</button>
+            <button class="tab-button text-sm sm:text-base py-2 px-3 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-600 transition-colors" onclick="openTab(event, 'group')">👥 Grupo</button>
+            <button class="tab-button text-sm sm:text-base py-2 px-3 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-600 transition-colors" onclick="openTab(event, 'resources')">🔗 Recursos</button>
+        </div>
+    </nav>
+
+    <main class="container mx-auto max-w-6xl p-4 sm:p-6">
+        <div id="overview" class="tab-content active">
+            <h2 class="text-2xl font-semibold text-emerald-700 mb-4">Bienvenido a tu Aventura en el Camino</h2>
+            <div class="bg-white p-6 rounded-lg shadow space-y-4">
+                <p class="text-lg">Embarcarse en el Camino de Santiago es una experiencia transformadora. Esta aplicación te guiará a través de la planificación de una peregrinación de 10 días desde Dallas para un grupo de 20 personas, cubriendo los últimos 120 km del Camino Francés.</p>
+                <p>El objetivo es equilibrar la autenticidad del Camino con la comodidad del grupo, enfocándose en la viabilidad económica y una experiencia inolvidable. Navega por las pestañas para explorar cada aspecto del viaje.</p>
+                <div class="mt-6 p-4 bg-sky-50 border-l-4 border-sky-500 text-sky-700 rounded">
+                    <p class="font-semibold">¡Buen Camino!</p>
+                    <p>Que esta herramienta te sea de gran utilidad para preparar tu peregrinación.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="planning" class="tab-content">
+            <h2 class="text-2xl font-semibold text-emerald-700 mb-4">📅 Planifica tu Viaje</h2>
+            <div class="space-y-6">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-emerald-600 mb-3">☀️ Mejor Época para la Peregrinación</h3>
+                    <p class="mb-2">La primavera (mayo) y el otoño (septiembre) son ideales. Mayo ofrece temperaturas medias en Sarria de 7°C a 19°C con unos 6 días de lluvia. Septiembre es más cálido (11°C a 23°C) con solo unos 3 días de lluvia.</p>
+                    <p class="mb-4"><strong>Recomendación: Mayo o Septiembre</strong> por temperaturas agradables y menor probabilidad de lluvia extrema.</p>
+                    <div class="chart-container">
+                        <canvas id="climateChart"></canvas>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2 text-center">Comparativa climática para Sarria (Fuente: Informe)</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-emerald-600 mb-3">✈️ Vuelos y Traslados a Sarria</h3>
+                    <p class="mb-2">La opción más económica y con mejor logística para un grupo de 20 es volar de <strong>Dallas (DFW) a Madrid (MAD)</strong>. Precios de ida y vuelta: €400 - €700 (reservando con antelación).</p>
+                    <h4 class="font-semibold mt-4 mb-2">Transporte de Madrid (MAD) a Sarria (Opción Recomendada):</h4>
+                    <div class="transport-diagram mb-4">
+                        <div class="transport-step">📍 Aeropuerto MAD T4</div>
+                        <div class="transport-arrow">➡️</div>
+                        <div class="transport-step">🚆 Tren Cercanías (C1/C10) o Metro</div>
+                        <div class="transport-arrow">➡️</div>
+                        <div class="transport-step">📍 Est. Madrid-Chamartín</div>
+                        <div class="transport-arrow">➡️</div>
+                        <div class="transport-step">🚆 Tren Renfe Alvia (directo)</div>
+                        <div class="transport-arrow">➡️</div>
+                        <div class="transport-step">🏁 Sarria</div>
+                    </div>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li><strong>Aeropuerto MAD a Madrid-Chamartín:</strong> ~30-40 min. Cercanías (~€2.60) o Metro (~€5).</li>
+                        <li><strong>Madrid-Chamartín a Sarria (Tren Alvia):</strong> ~4 - 5.5 horas. Precio: €35 - €80 (reservar con antelación).</li>
+                    </ul>
+                     <p class="mt-3 text-sm text-gray-700">Considera reservar trenes para grupos con mucha antelación en Renfe.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="route" class="tab-content">
+            <h2 class="text-2xl font-semibold text-emerald-700 mb-4">🚶 La Ruta: Camino Francés desde Sarria (Últimos ~115 km)</h2>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <p class="mb-4">Esta sección del Camino es popular, bien señalizada y con abundantes servicios, ideal para obtener la Compostela. Aquí tienes un mapa conceptual de las etapas:</p>
+                <div class="stage-map-container mb-6">
+                    <div class="stage-map-item"><strong>Sarria</strong> (Inicio)</div>
+                    <div class="stage-map-arrow">↓ ~22 km</div>
+                    <div class="stage-map-item"><strong>Portomarín</strong></div>
+                    <div class="stage-map-arrow">↓ ~25 km</div>
+                    <div class="stage-map-item"><strong>Palas de Rei</strong></div>
+                    <div class="stage-map-arrow">↓ ~29 km</div>
+                    <div class="stage-map-item"><strong>Arzúa</strong></div>
+                    <div class="stage-map-arrow">↓ ~19 km</div>
+                    <div class="stage-map-item"><strong>O Pedrouzo</strong></div>
+                    <div class="stage-map-arrow">↓ ~20 km</div>
+                    <div class="stage-map-item"><strong>Santiago de Compostela</strong> (Fin)</div>
+                </div>
+                <p class="mb-4">Haz clic en cada etapa para ver los detalles:</p>
+                <div id="stagesContainer" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <div id="itinerary" class="tab-content">
+            <h2 class="text-2xl font-semibold text-emerald-700 mb-4">🗓️ Itinerario Detallado de 10 Días</h2>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <p class="mb-4">Este es un plan intenso que maximiza los días de caminata. Haz clic en cada día para ver los detalles:</p>
+                <div id="itineraryContainer" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <div id="budget" class="tab-content">
+            <h2 class="text-2xl font-semibold text-emerald-700 mb-4">💰 Estimación de Presupuesto (por Persona)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-emerald-600 mb-3">📊 Desglose General</h3>
+                    <div class="chart-container h-72 md:h-96">
+                        <canvas id="budgetChart"></canvas>
+                    </div>
+                    <p class="text-center mt-3 text-lg font-medium">Total Estimado: <strong>€902 - €1510</strong></p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-emerald-600 mb-3">📋 Detalle de Costes Estimados (€)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Coste Estimado (€)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="budgetTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <h4 class="font-semibold mt-6 mb-2 text-emerald-600">💡 Consejos para Ahorrar:</h4>
+                    <ul class="list-disc list-inside space-y-1 text-sm">
+                        <li>Reservar vuelos y trenes con mucha antelación.</li>
+                        <li>Cocinar en albergues si tienen cocina.</li>
+                        <li>Aprovechar el "Menú del Peregrino" (€10-€15).</li>
+                        <li>Llevar botella de agua reutilizable.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="preparations" class="tab-content">
+            <h2 class="text-2xl font-semibold text-emerald-700 mb-4">🎒 Preparativos Previos y Equipaje</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-emerald-600 mb-3">🏋️‍♂️ Entrenamiento Físico</h3>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li>Entrenamiento gradual para caminar 20-30 km diarios.</li>
+                        <li>Incluir caminatas largas con el calzado y mochila del Camino.</li>
+                        <li>"Domar" las botas de senderismo con antelación.</li>
+                    </ul>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-emerald-600 mb-3">📋 Lista de Equipaje Esencial (Marca lo que tienes)</h3>
+                    <div id="packingListContainer" class="space-y-2 text-sm max-h-96 overflow-y-auto pr-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="group" class="tab-content">
+            <h2 class="text-2xl font-semibold text-emerald-700 mb-4">👥 Consideraciones para Viajes en Grupo (20 Personas)</h2>
+            <div class="bg-white p-6 rounded-lg shadow space-y-3">
+                <div class="p-3 bg-sky-50 border border-sky-200 rounded">
+                    <h4 class="font-semibold text-sky-700">Flexibilidad:</h4>
+                    <p class="text-sm">Mantener un grado de flexibilidad a pesar del plan detallado.</p>
+                </div>
+                <div class="p-3 bg-sky-50 border border-sky-200 rounded">
+                    <h4 class="font-semibold text-sky-700">Dinámica de Grupo:</h4>
+                    <p class="text-sm">Fomentar comunicación abierta. Permitir subgrupos con puntos de encuentro.</p>
+                </div>
+                <div class="p-3 bg-red-50 border border-red-200 rounded">
+                    <h4 class="font-semibold text-red-700">¡Reservas Críticas!</h4>
+                    <p class="text-sm">Todas las reservas de alojamiento son imprescindibles y deben hacerse con meses de antelación. Contactar albergues para grupos.</p>
+                </div>
+                <div class="p-3 bg-sky-50 border border-sky-200 rounded">
+                    <h4 class="font-semibold text-sky-700">Transporte de Mochilas:</h4>
+                    <p class="text-sm">Considerar servicios como "Paq Mochila" de Correos (€5-€8 por mochila/etapa) para mayor comodidad.</p>
+                </div>
+                 <div class="p-3 bg-sky-50 border border-sky-200 rounded">
+                    <h4 class="font-semibold text-sky-700">Coordinación:</h4>
+                    <p class="text-sm">Designar un líder, compartir itinerario y contactos, acordar ritmo y planes de contingencia.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="resources" class="tab-content">
+            <h2 class="text-2xl font-semibold text-emerald-700 mb-4">🔗 Enlaces de Interés y Recursos</h2>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <ul class="list-disc list-inside space-y-2">
+                    <li><strong>Información General y Etapas:</strong>
+                        <ul class="list-['-_'] list-inside ml-4 space-y-1">
+                            <li><a href="https://www.gronze.com" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">Gronze.com</a></li>
+                            <li><a href="https://www.caminodesantiago.gal" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">Portal Oficial del Peregrino (Xunta de Galicia)</a></li>
+                            <li><a href="https://www.santiagoways.com" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">Santiago Ways</a></li>
+                        </ul>
+                    </li>
+                    <li><strong>Transporte:</strong>
+                        <ul class="list-['-_'] list-inside ml-4 space-y-1">
+                            <li><a href="https://www.renfe.com" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">Renfe (Trenes España)</a></li>
+                            <li><a href="https://www.alsa.es" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">ALSA (Autobuses España)</a></li>
+                            <li><a href="https://www.monbus.es" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">MonBus</a></li>
+                        </ul>
+                    </li>
+                    <li><strong>Credencial del Peregrino (EE.UU.):</strong>
+                        <ul class="list-['-_'] list-inside ml-4 space-y-1">
+                            <li><a href="https://www.americanpilgrims.org" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">American Pilgrims on the Camino</a></li>
+                        </ul>
+                    </li>
+                    <li><strong>Información Climática:</strong>
+                        <ul class="list-['-_'] list-inside ml-4 space-y-1">
+                            <li><a href="https://www.aemet.es" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">AEMET (Agencia Estatal de Meteorología España)</a></li>
+                            <li><a href="https://www.meteogalicia.gal" target="_blank" class="text-sky-600 hover:text-sky-800 hover:underline">MeteoGalicia</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-stone-800 text-stone-300 text-center p-6 mt-8">
+        <p>&copy; <span id="currentYear"></span> Plan de Peregrinación Interactivo. ¡Buen Camino!</p>
+    </footer>
+
+<script>
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+    function openTab(event, tabName) {
+        let i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.remove("active");
+        }
+        tablinks = document.getElementsByClassName("tab-button");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        document.getElementById(tabName).style.display = "block";
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Accordion functionality
+    function toggleAccordion(element) {
+        const content = element.nextElementSibling;
+        const icon = element.querySelector('.accordion-icon');
+        content.classList.toggle('open');
+        if (content.classList.contains('open')) {
+            icon.textContent = '➖';
+        } else {
+            icon.textContent = '➕';
+        }
+    }
+
+    const stagesData = [
+        { name: "Sarria – Portomarín", distance: "~22.2 km", time: "4.5 - 5.5 hrs", difficulty: "2/5 (Moderada)", albergue: "Albergue Ferramenteiro", price: "€14-€16",
+          description: "Salida de Sarria, atraviesa robledales y prados, desciende al río Miño y cruza a Portomarín. Colinas onduladas." },
+        { name: "Portomarín – Palas de Rei", distance: "~25 km", time: "5.0 - 6.0 hrs", difficulty: "2/5 (Moderada)", albergue: "Albergue San Marcos", price: "€15-€20",
+          description: "Ascenso gradual unos 15 km, luego terreno ondulado. Parte del tramo junto a la carretera. Pasa por Gonzar y Ventas de Narón." },
+        { name: "Palas de Rei – Arzúa", distance: "~29 km", time: "6.0 - 7.0 hrs", difficulty: "3/5 (Moderada-Alta)", albergue: "Albergue Ultreia", price: "€14-€17",
+          description: "Etapa más larga y exigente. Primeros 20 km tranquilos, últimos 7 km con subidas/bajadas pronunciadas. Pasa por Melide (famoso pulpo)." },
+        { name: "Arzúa – O Pedrouzo", distance: "~19 km", time: "4.0 - 4.5 hrs", difficulty: "2/5 (Moderada)", albergue: "Albergue Cruceiro de Pedrouzo", price: "€12-€14",
+          description: "Etapa tranquila y bonita. Pendientes suaves, largas pistas forestales, campos de eucaliptos. Bien equipada." },
+        { name: "O Pedrouzo – Santiago", distance: "~20 km", time: "4.5 - 5.0 hrs", difficulty: "2/5 (Moderada)", albergue: "Albergue Seminario Menor / Dream in Santiago", price: "€17-€25",
+          description: "Etapa fácil y emocionante. Atraviesa bosques, rodea el aeropuerto, pasa por Lavacolla y Monte do Gozo (primera vista de la Catedral)." }
+    ];
+
+    const stagesContainer = document.getElementById('stagesContainer');
+    stagesData.forEach(stage => {
+        const stageElement = `
+            <div class="border border-gray-200 rounded-lg">
+                <button class="w-full text-left p-4 bg-emerald-50 hover:bg-emerald-100 focus:outline-none flex justify-between items-center" onclick="toggleAccordion(this)">
+                    <span class="font-semibold text-emerald-700">${stage.name} (${stage.distance})</span>
+                    <span class="accordion-icon text-emerald-700 text-xl">➕</span>
+                </button>
+                <div class="accordion-content bg-white p-4 border-t border-gray-200">
+                    <p><strong>Tiempo Estimado:</strong> ${stage.time}</p>
+                    <p><strong>Dificultad:</strong> ${stage.difficulty}</p>
+                    <p class="mt-2">${stage.description}</p>
+                    <p class="mt-2"><strong>Albergue Sugerido:</strong> ${stage.albergue} (aprox. ${stage.price})</p>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mt-3">
+                         <div class="bg-sky-500 h-2.5 rounded-full" style="width: ${parseFloat(stage.distance.replace('~','').replace(' km','')) / 30 * 100}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-500 text-right">Distancia (max 30km)</p>
+                </div>
+            </div>
+        `;
+        stagesContainer.innerHTML += stageElement;
+    });
+
+    const itineraryData = [
+        { day: 1, activity: "Viaje Dallas (DFW) a Madrid (MAD)", accommodation: "En vuelo" },
+        { day: 2, activity: "Llegada a MAD, Traslado en tren a Sarria", accommodation: "Albergue en Sarria (ej. Monasterio de La Magdalena, €12-€15)" },
+        { day: 3, activity: "Camino: Sarria – Portomarín (~22 km)", accommodation: "Albergue en Portomarín (ej. Ferramenteiro, €14-€16)" },
+        { day: 4, activity: "Camino: Portomarín – Palas de Rei (~25 km)", accommodation: "Albergue en Palas de Rei (ej. San Marcos, €15-€20)" },
+        { day: 5, activity: "Camino: Palas de Rei – Arzúa (~29 km)", accommodation: "Albergue en Arzúa (ej. Ultreia, €14-€17)" },
+        { day: 6, activity: "Camino: Arzúa – O Pedrouzo (~19 km)", accommodation: "Albergue en O Pedrouzo (ej. Cruceiro de Pedrouzo, €12-€14)" },
+        { day: 7, activity: "Camino: O Pedrouzo – Santiago de Compostela (~20 km). Visita Catedral, obtener Compostela.", accommodation: "Albergue en Santiago (ej. Seminario Menor, €17-€25)" },
+        { day: 8, activity: "Explorar Santiago de Compostela / Día de descanso. Misa del Peregrino.", accommodation: "Mismo albergue en Santiago" },
+        { day: 9, activity: "Traslado Santiago a Madrid (MAD) en tren, Vuelo de regreso a DFW", accommodation: "En vuelo" },
+        { day: 10, activity: "Llegada a Dallas (DFW)", accommodation: "N/A" }
+    ];
+
+    const itineraryContainer = document.getElementById('itineraryContainer');
+    itineraryData.forEach(item => {
+        const itineraryElement = `
+            <div class="border border-gray-200 rounded-lg">
+                <button class="w-full text-left p-3 bg-sky-50 hover:bg-sky-100 focus:outline-none flex justify-between items-center" onclick="toggleAccordion(this)">
+                    <span class="font-medium text-sky-700">Día ${item.day}: ${item.activity.split('(')[0].split(':')[0]}</span>
+                    <span class="accordion-icon text-sky-700 text-lg">➕</span>
+                </button>
+                <div class="accordion-content bg-white p-3 border-t border-gray-200 text-sm">
+                    <p><strong>Actividad Principal:</strong> ${item.activity}</p>
+                    <p><strong>Alojamiento:</strong> ${item.accommodation}</p>
+                </div>
+            </div>
+        `;
+        itineraryContainer.innerHTML += itineraryElement;
+    });
+
+    const budgetItems = [
+        { category: "Vuelos (DFW-MAD-DFW)", cost: "€400 - €700" },
+        { category: "Transporte Terrestre España", cost: "€95 - €160" },
+        { category: "Alojamiento (Albergues - 7 noches)", cost: "€105 - €175" },
+        { category: "Comida (8 días)", cost: "€200 - €320" },
+        { category: "Credencial del Peregrino", cost: "€2 - €5" },
+        { category: "Misceláneos/Imprevistos", cost: "€100 - €150" }
+    ];
+    const budgetTableBody = document.getElementById('budgetTableBody');
+    budgetItems.forEach(item => {
+        const row = `<tr>
+                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${item.category}</td>
+                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${item.cost}</td>
+                     </tr>`;
+        budgetTableBody.innerHTML += row;
+    });
+
+    const packingListData = [
+        "Mochila (30-40L)", "Botas/zapatillas senderismo (usadas)", "Sandalias/calzado ligero descanso",
+        "2-3 Camisetas técnicas secado rápido", "2 Pantalones senderismo (convertibles o largos/cortos)",
+        "2-3 Pares calcetines técnicos antiampollas", "Ropa interior secado rápido", "Forro polar o capa abrigo",
+        "Chubasquero y pantalón impermeable", "Saco de dormir ligero o sábana saco", "Toalla microfibra secado rápido",
+        "Artículos aseo personal (formato viaje)", "Crema solar alta protección", "Gorra o sombrero", "Gafas de sol",
+        "Botiquín básico (tiritas, Compeed, vaselina, analgésicos)", "Medicación personal", "Botella agua reutilizable",
+        "Linterna frontal", "Credencial del Peregrino y pasaporte (y fotocopias)", "Adaptador corriente universal",
+        "Dinero en efectivo (euros)", "Tapones para los oídos y antifaz", "Bolsas plástico (ropa sucia/proteger)"
+    ];
+    const packingListContainer = document.getElementById('packingListContainer');
+    packingListData.forEach(item => {
+        const listItem = `
+            <label class="flex items-center space-x-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer">
+                <input type="checkbox" class="form-checkbox h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                <span>${item}</span>
+            </label>
+        `;
+        packingListContainer.innerHTML += listItem;
+    });
+
+
+    // Charts
+    const climateCtx = document.getElementById('climateChart').getContext('2d');
+    new Chart(climateCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Temp. Máx (°C)', 'Temp. Mín (°C)', 'Días Lluvia (promedio)'],
+            datasets: [
+                {
+                    label: 'Mayo en Sarria',
+                    data: [19, 7, 6],
+                    backgroundColor: 'rgba(52, 211, 153, 0.7)', // emerald-400
+                    borderColor: 'rgba(5, 150, 105, 1)', // emerald-600
+                    borderWidth: 1
+                },
+                {
+                    label: 'Septiembre en Sarria',
+                    data: [23, 11, 3],
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)', // blue-500
+                    borderColor: 'rgba(37, 99, 235, 1)', // blue-700
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } },
+            plugins: {
+                title: { display: true, text: 'Clima Comparativo en Sarria' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) { label += ': '; }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y;
+                                if (context.label.includes('Temp')) label += '°C';
+                                else if (context.label.includes('Lluvia')) label += ' días';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    const budgetCtx = document.getElementById('budgetChart').getContext('2d');
+    new Chart(budgetCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Vuelos', 'Transporte ESP', 'Alojamiento', 'Comida', 'Credencial', 'Misceláneos'],
+            datasets: [{
+                label: 'Estimación de Presupuesto',
+                // Using average of min-max for chart representation
+                data: [ (400+700)/2, (95+160)/2, (105+175)/2, (200+320)/2, (2+5)/2, (100+150)/2 ],
+                backgroundColor: [
+                    'rgba(250, 204, 21, 0.7)',  // yellow-400
+                    'rgba(245, 158, 11, 0.7)',  // amber-500
+                    'rgba(234, 88, 12, 0.7)',   // orange-600
+                    'rgba(220, 38, 38, 0.7)',   // red-600
+                    'rgba(124, 58, 237, 0.7)',  // purple-600
+                    'rgba(20, 184, 166, 0.7)'   // teal-500
+                ],
+                borderColor: [
+                    'rgba(217, 119, 6, 1)',   // yellow-600
+                    'rgba(217, 119, 6, 1)',   // amber-600
+                    'rgba(202, 138, 4, 1)',    // orange-700
+                    'rgba(185, 28, 28, 1)',    // red-700
+                    'rgba(107, 33, 168, 1)',   // purple-700
+                    'rgba(13, 148, 136, 1)'    // teal-600
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: { display: true, text: 'Distribución Estimada del Presupuesto (Promedio)' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) { label += ': '; }
+                            if (context.parsed !== null) {
+                                label += '€' + context.parsed.toFixed(2);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Set default tab
+    document.querySelector('.tab-button').click();
+</script>
+
+</body>
